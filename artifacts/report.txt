@@ -1,0 +1,2 @@
+Synthetic artifact report
+Status: complete

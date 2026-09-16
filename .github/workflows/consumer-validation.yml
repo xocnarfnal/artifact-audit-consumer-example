@@ -1,0 +1,45 @@
+name: Consumer validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the consumer repository
+        uses: actions/checkout@v7
+
+      - name: Verify the clean synthetic bundle
+        uses: xocnarfnal/artifact-audit@v0.2.1
+        with:
+          path: ./artifacts
+          manifest: ./seal.json
+
+      - name: Introduce synthetic drift
+        shell: bash
+        run: printf '\nDeliberate synthetic drift.\n' >> artifacts/report.txt
+
+      - name: Verify the drifted bundle (failure is expected)
+        id: expected-drift
+        continue-on-error: true
+        uses: xocnarfnal/artifact-audit@v0.2.1
+        with:
+          path: ./artifacts
+          manifest: ./seal.json
+
+      - name: Assert that Artifact Audit detected the drift
+        shell: bash
+        env:
+          ACTION_OUTCOME: ${{ steps.expected-drift.outcome }}
+        run: |
+          if [ "$ACTION_OUTCOME" != "failure" ]; then
+            echo "::error::Artifact Audit did not fail for the deliberately drifted bundle."
+            exit 1
+          fi
+          echo "Artifact Audit detected the deliberate drift as expected."
